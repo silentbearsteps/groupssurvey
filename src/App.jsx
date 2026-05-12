@@ -339,6 +339,9 @@ function TabOverview() {
       </div>
       <div style={{ display:'grid', gridTemplateColumns:m?'1fr':'1fr 300px', gap:28 }}>
         <div>
+          <div style={{ fontFamily:MONO, fontSize:10, color:DIM, letterSpacing:'0.12em', marginBottom:16 }}>
+            // No two respondents submitted the same list
+          </div>
           <SectionDivider label="Top 10 Groups by Appearances" />
           {top10.map((g,i)=>(
             <div key={g.name} style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
