@@ -1,9 +1,8 @@
-import { useState, useMemo } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from "recharts";
+import { useState, useMemo, useEffect, createContext, useContext } from "react";
+import { PieChart, Pie, Cell, Tooltip } from "recharts";
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
-const META = { total: 102, male: 56, female: 46, unique: 126, median_age: 30.5, age_min: 19, age_max: 60 };
-
+const META = { total: 102, male: 56, female: 46, unique: 126, median_age: 31, age_min: 19, age_max: 60 };
 const GROUPS = [
   { name: "Destiny's Child", total: 30, male: 11, female: 19, genre: "R&B / Soul", pct: 29.4 },
   { name: "OutKast", total: 23, male: 16, female: 7, genre: "Hip-Hop / Rap", pct: 22.5 },
@@ -131,7 +130,6 @@ const GROUPS = [
   { name: "She Wants Revenge", total: 1, male: 1, female: 0, genre: "Pop / Rock", pct: 1.0 },
   { name: "Paris, Texas", total: 1, male: 1, female: 0, genre: "Other", pct: 1.0 },
 ];
-
 const GENRE_TOTALS = { "R&B / Soul": 200, "Hip-Hop / Rap": 108, "Pop / Rock": 72, "Funk / Classic": 23, "Other": 5 };
 const GENRE_BY_GENDER = {
   male: { "R&B / Soul": 81, "Hip-Hop / Rap": 81, "Pop / Rock": 45, "Funk / Classic": 14, "Other": 3 },
@@ -144,28 +142,25 @@ const BRACKETS = {
   "35–39": { count: 9, top: [{ name: "New Edition", n: 3 }, { name: "The Temptations", n: 2 }, { name: "Jodeci", n: 2 }, { name: "OutKast", n: 2 }, { name: "Backstreet Boys", n: 2 }] },
   "40+":   { count: 19, top: [{ name: "New Edition", n: 9 }, { name: "Jackson 5", n: 5 }, { name: "Earth, Wind & Fire", n: 5 }, { name: "OutKast", n: 4 }, { name: "Xscape", n: 4 }] }
 };
+const GENRE_BY_BRACKET = {
+  "18–24": { "R&B / Soul": 12, "Pop / Rock": 12, "Hip-Hop / Rap": 8 },
+  "25–29": { "R&B / Soul": 58, "Pop / Rock": 24, "Hip-Hop / Rap": 39, "Other": 3, "Funk / Classic": 4 },
+  "30–34": { "R&B / Soul": 63, "Pop / Rock": 26, "Hip-Hop / Rap": 37, "Funk / Classic": 8, "Other": 2 },
+  "35–39": { "R&B / Soul": 20, "Hip-Hop / Rap": 8, "Pop / Rock": 7, "Funk / Classic": 1 },
+  "40+":   { "R&B / Soul": 47, "Hip-Hop / Rap": 16, "Pop / Rock": 3, "Funk / Classic": 10 },
+};
 const MEDIAN_AGES = [
-  { name: "City Girls", median: 28.0, n: 4 },
-  { name: "Jagged Edge", median: 28.0, n: 5 },
-  { name: "Three 6 Mafia", median: 28.5, n: 6 },
-  { name: "112", median: 29.0, n: 5 },
-  { name: "Pretty Ricky", median: 29.0, n: 6 },
-  { name: "Migos", median: 29.0, n: 11 },
-  { name: "Isley Brothers", median: 29.0, n: 7 },
-  { name: "Paramore", median: 29.0, n: 7 },
-  { name: "Wu-Tang Clan", median: 30.0, n: 11 },
-  { name: "Destiny's Child", median: 30.0, n: 30 },
-  { name: "OutKast", median: 30.0, n: 23 },
-  { name: "Boyz II Men", median: 31.0, n: 17 },
-  { name: "Jackson 5", median: 32.0, n: 16 },
-  { name: "Queen", median: 32.0, n: 8 },
-  { name: "The Beatles", median: 32.0, n: 6 },
-  { name: "Earth, Wind & Fire", median: 33.0, n: 15 },
-  { name: "NWA", median: 33.0, n: 8 },
-  { name: "TLC", median: 33.0, n: 9 },
-  { name: "Jodeci", median: 34.5, n: 10 },
-  { name: "New Edition", median: 35.0, n: 19 },
-  { name: "Xscape", median: 42.0, n: 5 },
+  { name: "City Girls", median: 28 },{ name: "Jagged Edge", median: 28 },
+  { name: "Three 6 Mafia", median: 29 },{ name: "112", median: 29 },
+  { name: "Pretty Ricky", median: 29 },{ name: "Migos", median: 29 },
+  { name: "Isley Brothers", median: 29 },{ name: "Paramore", median: 29 },
+  { name: "Wu-Tang Clan", median: 30 },{ name: "Destiny's Child", median: 30 },
+  { name: "OutKast", median: 30 },{ name: "Boyz II Men", median: 31 },
+  { name: "Jackson 5", median: 32 },{ name: "Queen", median: 32 },
+  { name: "The Beatles", median: 32 },{ name: "Earth, Wind & Fire", median: 33 },
+  { name: "NWA", median: 33 },{ name: "TLC", median: 33 },
+  { name: "Jodeci", median: 35 },{ name: "New Edition", median: 35 },
+  { name: "Xscape", median: 42 },
 ];
 const RESPONDENTS = [
   { num: 101, gender: "Female", age: 26, picks: ["Destiny's Child","Jackson 5","Boyz II Men","Jodeci"], score: 73 },
@@ -272,154 +267,112 @@ const RESPONDENTS = [
   { num: 100, gender: "Male", age: 19, picks: ["A Tribe Called Quest","Lord Huron","Glass Animals","EarthGang"], score: 5 },
 ];
 
-// ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const BG = '#07101F';
-const SURF = '#0C1828';
-const SURF2 = '#0F1E35';
-const BORDER = '#152538';
-const BORDER2 = '#1D3050';
-const TEXT = '#C8DFF0';
-const MUTED = '#506A88';
-const DIM = '#2A4560';
-const AMBER = '#F5C430';
-const TEAL = '#1FCFB0';
-const AMBER_DIM = '#7A6820';
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
+const BG='#07101F',SURF='#0C1828',SURF2='#0F1E35',BORDER='#152538',BORDER2='#1D3050';
+const TEXT='#C8DFF0',MUTED='#506A88',DIM='#2A4560',AMBER='#F5C430',TEAL='#1FCFB0';
+const MONO='"IBM Plex Mono",monospace',COND='"Barlow Condensed",sans-serif',BODY='"Space Grotesk",sans-serif';
+const GENRE_COLOR={'R&B / Soul':AMBER,'Hip-Hop / Rap':TEAL,'Pop / Rock':'#8B9FE8','Funk / Classic':'#E8875D','Other':'#6B7A8D'};
 
-const GENRE_COLOR = {
-  'R&B / Soul': AMBER,
-  'Hip-Hop / Rap': TEAL,
-  'Pop / Rock': '#8B9FE8',
-  'Funk / Classic': '#E8875D',
-  'Other': '#6B7A8D',
-};
+// ─── MOBILE CONTEXT ──────────────────────────────────────────────────────────
+const MobileCtx = createContext(false);
+const useMobile = () => useContext(MobileCtx);
+function useIsMobile() {
+  const [m, setM] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const h = () => setM(window.innerWidth < 768);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+  return m;
+}
 
-const MONO = '"IBM Plex Mono", monospace';
-const COND = '"Barlow Condensed", sans-serif';
-const BODY = '"Space Grotesk", sans-serif';
-
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
-const Mono = ({ children, size = 10, color = MUTED, style = {} }) => (
-  <span style={{ fontFamily: MONO, fontSize: size, letterSpacing: '0.14em', color, ...style }}>{children}</span>
+// ─── SHARED COMPONENTS ───────────────────────────────────────────────────────
+const Mono = ({ children, size=10, color=MUTED, style={} }) => (
+  <span style={{ fontFamily:MONO, fontSize:size, letterSpacing:'0.14em', color, ...style }}>{children}</span>
 );
-const Label = ({ children, color = MUTED }) => (
-  <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color, marginBottom: 8 }}>{children}</div>
+const Label = ({ children, color=MUTED }) => (
+  <div style={{ fontFamily:MONO, fontSize:10, letterSpacing:'0.18em', textTransform:'uppercase', color, marginBottom:8 }}>{children}</div>
 );
-const Card = ({ children, style = {} }) => (
-  <div style={{ background: SURF, border: `1px solid ${BORDER}`, borderRadius: 3, padding: '20px 22px', ...style }}>{children}</div>
+const Card = ({ children, style={} }) => (
+  <div style={{ background:SURF, border:`1px solid ${BORDER}`, borderRadius:3, padding:'20px 22px', ...style }}>{children}</div>
 );
 const GenreTag = ({ genre }) => (
-  <span style={{
-    fontFamily: MONO, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase',
-    color: GENRE_COLOR[genre] || MUTED,
-    border: `1px solid ${GENRE_COLOR[genre] || MUTED}`,
-    borderRadius: 2, padding: '2px 7px', opacity: 0.85, whiteSpace: 'nowrap'
-  }}>{genre}</span>
+  <span style={{ fontFamily:MONO, fontSize:9, letterSpacing:'0.1em', textTransform:'uppercase', color:GENRE_COLOR[genre]||MUTED, border:`1px solid ${GENRE_COLOR[genre]||MUTED}`, borderRadius:2, padding:'2px 6px', opacity:0.85, whiteSpace:'nowrap' }}>{genre}</span>
 );
-
 const SectionDivider = ({ label }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
-    <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: AMBER, whiteSpace: 'nowrap' }}>
-      // {label}
-    </div>
-    <div style={{ flex: 1, height: 1, background: BORDER }} />
+  <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:20 }}>
+    <div style={{ fontFamily:MONO, fontSize:10, letterSpacing:'0.2em', textTransform:'uppercase', color:AMBER, whiteSpace:'nowrap' }}>// {label}</div>
+    <div style={{ flex:1, height:1, background:BORDER }} />
   </div>
 );
-
 const StatCard = ({ label, value, sub }) => (
   <Card>
     <Label>{label}</Label>
-    <div style={{ fontFamily: COND, fontSize: 48, fontWeight: 700, color: AMBER, lineHeight: 1 }}>{value}</div>
-    {sub && <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 6 }}>{sub}</div>}
+    <div style={{ fontFamily:COND, fontSize:48, fontWeight:700, color:AMBER, lineHeight:1 }}>{value}</div>
+    {sub && <div style={{ fontFamily:MONO, fontSize:10, color:MUTED, marginTop:6 }}>{sub}</div>}
   </Card>
 );
-
-const AppearanceBar = ({ pct, color = AMBER, height = 3 }) => (
-  <div style={{ height, background: BORDER, marginBottom: 5 }}>
-    <div style={{ height, width: `${pct}%`, background: color, transition: 'width 0.6s ease' }} />
+const AppearanceBar = ({ pct, color=AMBER, height=3 }) => (
+  <div style={{ height, background:BORDER, marginBottom:5 }}>
+    <div style={{ height, width:`${pct}%`, background:color }} />
   </div>
 );
 
-// ─── CUSTOM TOOLTIP ───────────────────────────────────────────────────────────
-const ChartTip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div style={{ background: '#0A1828', border: `1px solid ${BORDER2}`, padding: '8px 12px', borderRadius: 3 }}>
-      <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginBottom: 4 }}>{label}</div>
-      {payload.map((p, i) => (
-        <div key={i} style={{ fontFamily: COND, fontSize: 18, fontWeight: 700, color: p.color }}>{p.value}</div>
-      ))}
-    </div>
-  );
-};
-
-// ─── TAB: OVERVIEW ────────────────────────────────────────────────────────────
+// ─── TAB: OVERVIEW ───────────────────────────────────────────────────────────
 function TabOverview() {
-  const top10 = GROUPS.slice(0, 10).map(g => ({ name: g.name, total: g.total, color: GENRE_COLOR[g.genre] }));
-  const genreData = Object.entries(GENRE_TOTALS).map(([name, value]) => ({ name, value, color: GENRE_COLOR[name] }));
-  const totalPicks = Object.values(GENRE_TOTALS).reduce((a, b) => a + b, 0);
-
+  const m = useMobile();
+  const top10 = GROUPS.slice(0,10);
+  const genreData = Object.entries(GENRE_TOTALS).map(([name,value])=>({name,value,color:GENRE_COLOR[name]}));
+  const totalPicks = Object.values(GENRE_TOTALS).reduce((a,b)=>a+b,0);
+  const pad = m ? '20px 16px' : '36px 48px';
   return (
-    <div style={{ padding: '36px 48px' }}>
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 40 }}>
+    <div style={{ padding:pad }}>
+      <div style={{ display:'grid', gridTemplateColumns:m?'1fr 1fr':'repeat(4,1fr)', gap:12, marginBottom:32 }}>
         <StatCard label="Respondents" value={102} sub="Ages 19–60" />
-        <StatCard label="Groups Named" value={126} sub="Across 5 genres" />
+        <StatCard label="Groups Named" value={126} sub="5 genres" />
         <StatCard label="Avg. Age" value={31} sub="Range 19–60" />
         <Card>
           <Label>Gender Split</Label>
-          <div style={{ fontFamily: COND, fontSize: 48, fontWeight: 700, color: AMBER, lineHeight: 1 }}>56 / 46</div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 6 }}>Male / Female</div>
+          <div style={{ fontFamily:COND, fontSize:48, fontWeight:700, color:AMBER, lineHeight:1 }}>56/46</div>
+          <div style={{ fontFamily:MONO, fontSize:10, color:MUTED, marginTop:6 }}>M / F</div>
         </Card>
       </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 32 }}>
-        {/* Top 10 Chart */}
+      <div style={{ display:'grid', gridTemplateColumns:m?'1fr':'1fr 300px', gap:28 }}>
         <div>
           <SectionDivider label="Top 10 Groups by Appearances" />
-          <div style={{ paddingTop: 8 }}>
-            {top10.map((g, i) => (
-              <div key={g.name} style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
-                <div style={{ width: 180, textAlign: 'right', fontFamily: BODY, fontSize: 13, color: i === 0 ? TEXT : MUTED, flexShrink: 0, lineHeight: 1.3 }}>{g.name}</div>
-                <div style={{ flex: 1, height: 20, background: BORDER, borderRadius: 2, overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%',
-                    width: `${(g.total / top10[0].total) * 100}%`,
-                    background: i === 0 ? AMBER : i < 3 ? AMBER + 'AA' : DIM,
-                    borderRadius: 2,
-                  }} />
-                </div>
-                <div style={{ fontFamily: MONO, fontSize: 12, color: i === 0 ? AMBER : MUTED, minWidth: 24, textAlign: 'right' }}>{g.total}</div>
+          {top10.map((g,i)=>(
+            <div key={g.name} style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
+              <div style={{ width:m?130:175, textAlign:'right', fontFamily:BODY, fontSize:m?11:13, color:i===0?TEXT:MUTED, flexShrink:0, lineHeight:1.3 }}>{g.name}</div>
+              <div style={{ flex:1, height:18, background:BORDER, borderRadius:2, overflow:'hidden' }}>
+                <div style={{ height:'100%', width:`${(g.total/top10[0].total)*100}%`, background:i===0?AMBER:i<3?AMBER+'AA':DIM, borderRadius:2 }} />
               </div>
-            ))}
-          </div>
+              <div style={{ fontFamily:MONO, fontSize:11, color:i===0?AMBER:MUTED, minWidth:20, textAlign:'right' }}>{g.total}</div>
+            </div>
+          ))}
         </div>
-
-        {/* Right column */}
         <div>
           <SectionDivider label="Genre Breakdown" />
-          <ResponsiveContainer width="100%" height={180}>
-            <PieChart>
-              <Pie data={genreData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" paddingAngle={2}>
-                {genreData.map((g, i) => <Cell key={i} fill={g.color} />)}
+          <div style={{ display:'flex', justifyContent:'center' }}>
+            <PieChart width={160} height={160}>
+              <Pie data={genreData} cx={80} cy={80} innerRadius={45} outerRadius={72} dataKey="value" paddingAngle={2}>
+                {genreData.map((g,i)=><Cell key={i} fill={g.color}/>)}
               </Pie>
-              <Tooltip formatter={(v) => [`${v} picks (${Math.round(v/totalPicks*100)}%)`, '']} />
+              <Tooltip formatter={(v)=>[`${v} picks (${Math.round(v/totalPicks*100)}%)`,'']}/> 
             </PieChart>
-          </ResponsiveContainer>
-          <div style={{ marginTop: 12 }}>
-            {genreData.map(g => (
-              <div key={g.name} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <div style={{ width: 8, height: 8, borderRadius: 1, background: g.color, flexShrink: 0 }} />
-                <div style={{ flex: 1, fontFamily: BODY, fontSize: 12, color: TEXT }}>{g.name}</div>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: g.color }}>{Math.round(g.value / totalPicks * 100)}%</div>
+          </div>
+          <div style={{ marginTop:8 }}>
+            {genreData.map(g=>(
+              <div key={g.name} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+                <div style={{ width:8, height:8, borderRadius:1, background:g.color, flexShrink:0 }}/>
+                <div style={{ flex:1, fontFamily:BODY, fontSize:12, color:TEXT }}>{g.name}</div>
+                <div style={{ fontFamily:MONO, fontSize:11, color:g.color }}>{Math.round(g.value/totalPicks*100)}%</div>
               </div>
             ))}
           </div>
-
-          {/* Callout */}
-          <div style={{ marginTop: 24, padding: '16px 18px', borderLeft: `3px solid ${AMBER}`, background: SURF2 }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: AMBER, letterSpacing: '0.14em', marginBottom: 6 }}>// Signal</div>
-            <div style={{ fontFamily: BODY, fontSize: 13, color: TEXT, lineHeight: 1.6 }}>
-              Destiny's Child appeared on <span style={{ color: AMBER, fontWeight: 600 }}>30 of 102</span> lists — nearly 1 in 3 respondents. No group came close.
+          <div style={{ marginTop:20, padding:'14px 16px', borderLeft:`3px solid ${AMBER}`, background:SURF2 }}>
+            <div style={{ fontFamily:MONO, fontSize:10, color:AMBER, letterSpacing:'0.14em', marginBottom:6 }}>// Signal</div>
+            <div style={{ fontFamily:BODY, fontSize:13, color:TEXT, lineHeight:1.6 }}>
+              Destiny's Child appeared on <span style={{ color:AMBER, fontWeight:600 }}>30 of 102</span> lists. No group came close.
             </div>
           </div>
         </div>
@@ -428,180 +381,138 @@ function TabOverview() {
   );
 }
 
-// ─── TAB: THE GROUPS ──────────────────────────────────────────────────────────
+// ─── TAB: THE GROUPS ─────────────────────────────────────────────────────────
 function TabGroups() {
+  const m = useMobile();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
-  const genres = ['All', 'R&B / Soul', 'Hip-Hop / Rap', 'Pop / Rock', 'Funk / Classic', 'Other'];
-
-  const filtered = useMemo(() => {
-    return GROUPS.filter(g => {
-      const matchSearch = g.name.toLowerCase().includes(search.toLowerCase());
-      const matchGenre = filter === 'All' || g.genre === filter;
-      return matchSearch && matchGenre;
-    });
-  }, [search, filter]);
-
+  const genres = ['All','R&B / Soul','Hip-Hop / Rap','Pop / Rock','Funk / Classic','Other'];
+  const filtered = useMemo(()=>GROUPS.filter(g=>{
+    const ms = g.name.toLowerCase().includes(search.toLowerCase());
+    const mf = filter==='All'||g.genre===filter;
+    return ms&&mf;
+  }),[search,filter]);
   const max = GROUPS[0].total;
-
+  const pad = m ? '20px 16px' : '36px 48px';
   return (
-    <div style={{ padding: '36px 48px' }}>
-      {/* Controls */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 28, flexWrap: 'wrap' }}>
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search groups..."
-          style={{
-            background: SURF, border: `1px solid ${BORDER}`, borderRadius: 3,
-            padding: '8px 14px', fontFamily: BODY, fontSize: 13, color: TEXT,
-            outline: 'none', width: 220,
-          }}
-        />
-        <div style={{ display: 'flex', gap: 0 }}>
-          {genres.map(g => (
-            <button key={g} onClick={() => setFilter(g)} style={{
-              padding: '8px 14px',
-              background: filter === g ? AMBER : 'transparent',
-              border: `1px solid ${filter === g ? AMBER : BORDER}`,
-              color: filter === g ? BG : MUTED,
-              fontFamily: MONO, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-              cursor: 'pointer', transition: 'all 0.15s',
-            }}>{g === 'All' ? 'All' : g.split(' / ')[0]}</button>
+    <div style={{ padding:pad }}>
+      <div style={{ display:'flex', gap:8, marginBottom:16, flexWrap:'wrap' }}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search groups..."
+          style={{ background:SURF, border:`1px solid ${BORDER}`, borderRadius:3, padding:'8px 12px', fontFamily:BODY, fontSize:13, color:TEXT, outline:'none', width:m?'100%':200 }}/>
+        <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+          {genres.map(g=>(
+            <button key={g} onClick={()=>setFilter(g)} style={{
+              padding:'6px 10px', background:filter===g?AMBER:'transparent',
+              border:`1px solid ${filter===g?AMBER:BORDER}`, color:filter===g?BG:MUTED,
+              fontFamily:MONO, fontSize:9, letterSpacing:'0.08em', textTransform:'uppercase',
+              cursor:'pointer', borderRadius:2,
+            }}>{g==='All'?'All':g.split(' / ')[0]}</button>
           ))}
         </div>
-        <div style={{ marginLeft: 'auto', fontFamily: MONO, fontSize: 10, color: MUTED, alignSelf: 'center' }}>
-          {filtered.length} group{filtered.length !== 1 ? 's' : ''}
-        </div>
+        <div style={{ fontFamily:MONO, fontSize:10, color:DIM, alignSelf:'center', marginLeft:'auto' }}>{filtered.length} groups</div>
       </div>
-
-      {/* Header row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 140px 80px 80px', gap: 12, padding: '0 16px 10px', borderBottom: `1px solid ${BORDER}` }}>
-        {['#', 'Group', 'Genre', 'Picks', '% of Pool'].map(h => (
-          <div key={h} style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: DIM }}>{h}</div>
+      {/* Header */}
+      <div style={{ display:'grid', gridTemplateColumns:m?'32px 1fr 44px':'40px 1fr 140px 80px 70px', gap:10, padding:'0 12px 8px', borderBottom:`1px solid ${BORDER}` }}>
+        {(m?['#','Group','Picks']:['#','Group','Genre','Picks','% Pool']).map(h=>(
+          <div key={h} style={{ fontFamily:MONO, fontSize:9, letterSpacing:'0.14em', textTransform:'uppercase', color:DIM }}>{h}</div>
         ))}
       </div>
-
-      {/* Rows */}
-      <div>
-        {filtered.map((g, i) => {
-          const rank = GROUPS.indexOf(g) + 1;
-          return (
-            <div key={g.name} style={{
-              display: 'grid', gridTemplateColumns: '40px 1fr 140px 80px 80px',
-              gap: 12, padding: '14px 16px', borderBottom: `1px solid ${BORDER}`,
-              background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)',
-              alignItems: 'center',
-            }}>
-              <div style={{ fontFamily: MONO, fontSize: 11, color: rank === 1 ? AMBER : DIM }}>{rank}</div>
-              <div>
-                <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 500, color: TEXT, marginBottom: 5 }}>{g.name}</div>
-                <AppearanceBar pct={(g.total / max) * 100} color={rank === 1 ? AMBER : GENRE_COLOR[g.genre] + '80'} />
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {g.male > 0 && <Mono size={10} color={TEAL + 'CC'}>M: {g.male}</Mono>}
-                  {g.female > 0 && <Mono size={10} color={AMBER + 'CC'}>F: {g.female}</Mono>}
-                </div>
+      {filtered.map((g,i)=>{
+        const rank = GROUPS.indexOf(g)+1;
+        return (
+          <div key={g.name} style={{ display:'grid', gridTemplateColumns:m?'32px 1fr 44px':'40px 1fr 140px 80px 70px', gap:10, padding:'12px 12px', borderBottom:`1px solid ${BORDER}`, background:i%2===0?'transparent':'rgba(255,255,255,0.01)', alignItems:'center' }}>
+            <div style={{ fontFamily:MONO, fontSize:10, color:rank===1?AMBER:DIM }}>{rank}</div>
+            <div>
+              <div style={{ fontFamily:BODY, fontSize:m?12:14, fontWeight:500, color:TEXT, marginBottom:4 }}>{g.name}</div>
+              <AppearanceBar pct={(g.total/max)*100} color={rank===1?AMBER:GENRE_COLOR[g.genre]+'80'}/>
+              <div style={{ display:'flex', gap:6 }}>
+                {g.male>0&&<Mono size={9} color={TEAL+'CC'}>M:{g.male}</Mono>}
+                {g.female>0&&<Mono size={9} color={AMBER+'CC'}>F:{g.female}</Mono>}
               </div>
-              <GenreTag genre={g.genre} />
-              <div style={{ fontFamily: COND, fontSize: 24, fontWeight: 700, color: rank === 1 ? AMBER : TEXT }}>{g.total}</div>
-              <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED }}>{g.pct}%</div>
             </div>
-          );
-        })}
-      </div>
+            {!m&&<GenreTag genre={g.genre}/>}
+            <div style={{ fontFamily:COND, fontSize:m?20:24, fontWeight:700, color:rank===1?AMBER:TEXT }}>{g.total}</div>
+            {!m&&<div style={{ fontFamily:MONO, fontSize:11, color:MUTED }}>{g.pct}%</div>}
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-// ─── TAB: GENRE ───────────────────────────────────────────────────────────────
+// ─── TAB: GENRE ──────────────────────────────────────────────────────────────
 function TabGenre() {
-  const total = Object.values(GENRE_TOTALS).reduce((a, b) => a + b, 0);
-  const maleTotal = Object.values(GENRE_BY_GENDER.male).reduce((a, b) => a + b, 0);
-  const femaleTotal = Object.values(GENRE_BY_GENDER.female).reduce((a, b) => a + b, 0);
+  const m = useMobile();
+  const total = Object.values(GENRE_TOTALS).reduce((a,b)=>a+b,0);
+  const maleTotal = Object.values(GENRE_BY_GENDER.male).reduce((a,b)=>a+b,0);
+  const femaleTotal = Object.values(GENRE_BY_GENDER.female).reduce((a,b)=>a+b,0);
   const genres = Object.keys(GENRE_TOTALS);
-  const brackets = ["18–24", "25–29", "30–34", "35–39", "40+"];
-  const GENRE_BY_BRACKET = {
-    "18–24": { "R&B / Soul": 12, "Pop / Rock": 12, "Hip-Hop / Rap": 8 },
-    "25–29": { "R&B / Soul": 58, "Pop / Rock": 24, "Hip-Hop / Rap": 39, "Other": 3, "Funk / Classic": 4 },
-    "30–34": { "R&B / Soul": 63, "Pop / Rock": 26, "Hip-Hop / Rap": 37, "Funk / Classic": 8, "Other": 2 },
-    "35–39": { "R&B / Soul": 20, "Hip-Hop / Rap": 8, "Pop / Rock": 7, "Funk / Classic": 1 },
-    "40+":   { "R&B / Soul": 47, "Hip-Hop / Rap": 16, "Pop / Rock": 3, "Funk / Classic": 10 },
-  };
-
+  const brackets = ["18–24","25–29","30–34","35–39","40+"];
+  const pad = m ? '20px 16px' : '36px 48px';
   return (
-    <div style={{ padding: '36px 48px' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
-
-        {/* Overall */}
+    <div style={{ padding:pad }}>
+      <div style={{ display:'grid', gridTemplateColumns:m?'1fr':'1fr 1fr', gap:28 }}>
         <div>
-          <SectionDivider label="All Picks by Genre" />
-          {genres.map(g => (
-            <div key={g} style={{ marginBottom: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: 1, background: GENRE_COLOR[g] }} />
-                  <span style={{ fontFamily: BODY, fontSize: 14, color: TEXT }}>{g}</span>
+          <SectionDivider label="All Picks by Genre"/>
+          {genres.map(g=>(
+            <div key={g} style={{ marginBottom:18 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <div style={{ width:8, height:8, borderRadius:1, background:GENRE_COLOR[g] }}/>
+                  <span style={{ fontFamily:BODY, fontSize:13, color:TEXT }}>{g}</span>
                 </div>
-                <div style={{ display: 'flex', gap: 14 }}>
+                <div style={{ display:'flex', gap:12 }}>
                   <Mono size={11} color={TEXT}>{GENRE_TOTALS[g]}</Mono>
-                  <Mono size={11} color={MUTED}>{Math.round(GENRE_TOTALS[g] / total * 100)}%</Mono>
+                  <Mono size={11} color={MUTED}>{Math.round(GENRE_TOTALS[g]/total*100)}%</Mono>
                 </div>
               </div>
-              <AppearanceBar pct={GENRE_TOTALS[g] / total * 100} color={GENRE_COLOR[g]} height={6} />
+              <AppearanceBar pct={GENRE_TOTALS[g]/total*100} color={GENRE_COLOR[g]} height={6}/>
             </div>
           ))}
         </div>
-
-        {/* By Gender */}
         <div>
-          <SectionDivider label="Genre by Gender" />
-          {genres.map(g => {
-            const mPct = Math.round((GENRE_BY_GENDER.male[g] || 0) / maleTotal * 100);
-            const fPct = Math.round((GENRE_BY_GENDER.female[g] || 0) / femaleTotal * 100);
+          <SectionDivider label="Genre by Gender"/>
+          {genres.map(g=>{
+            const mPct=Math.round((GENRE_BY_GENDER.male[g]||0)/maleTotal*100);
+            const fPct=Math.round((GENRE_BY_GENDER.female[g]||0)/femaleTotal*100);
             return (
-              <div key={g} style={{ marginBottom: 20 }}>
-                <div style={{ fontFamily: BODY, fontSize: 13, color: TEXT, marginBottom: 8 }}>{g}</div>
-                <div style={{ marginBottom: 5 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                    <Mono size={10} color={TEAL}>Male</Mono>
-                    <Mono size={10} color={TEAL}>{mPct}%</Mono>
+              <div key={g} style={{ marginBottom:18 }}>
+                <div style={{ fontFamily:BODY, fontSize:13, color:TEXT, marginBottom:8 }}>{g}</div>
+                <div style={{ marginBottom:5 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
+                    <Mono size={10} color={TEAL}>Male</Mono><Mono size={10} color={TEAL}>{mPct}%</Mono>
                   </div>
-                  <AppearanceBar pct={mPct} color={TEAL} height={4} />
+                  <AppearanceBar pct={mPct} color={TEAL} height={4}/>
                 </div>
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                    <Mono size={10} color={AMBER}>Female</Mono>
-                    <Mono size={10} color={AMBER}>{fPct}%</Mono>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
+                    <Mono size={10} color={AMBER}>Female</Mono><Mono size={10} color={AMBER}>{fPct}%</Mono>
                   </div>
-                  <AppearanceBar pct={fPct} color={AMBER} height={4} />
+                  <AppearanceBar pct={fPct} color={AMBER} height={4}/>
                 </div>
               </div>
             );
           })}
         </div>
       </div>
-
-      {/* By Age Bracket */}
-      <div style={{ marginTop: 40 }}>
-        <SectionDivider label="Genre Dominance by Age Bracket" />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
-          {brackets.map(b => {
-            const bData = GENRE_BY_BRACKET[b] || {};
-            const bTotal = Object.values(bData).reduce((a, v) => a + v, 0);
-            const sorted = Object.entries(bData).sort((a, b) => b[1] - a[1]);
+      <div style={{ marginTop:36 }}>
+        <SectionDivider label="Genre Dominance by Age Group"/>
+        <div style={{ display:'grid', gridTemplateColumns:m?'1fr 1fr':'repeat(5,1fr)', gap:10 }}>
+          {brackets.map(b=>{
+            const bData=GENRE_BY_BRACKET[b]||{};
+            const bTotal=Object.values(bData).reduce((a,v)=>a+v,0);
+            const sorted=Object.entries(bData).sort((a,b)=>b[1]-a[1]);
             return (
-              <Card key={b} style={{ padding: '16px 18px' }}>
-                <div style={{ fontFamily: COND, fontSize: 20, fontWeight: 700, color: AMBER, marginBottom: 2 }}>{b}</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: DIM, marginBottom: 14 }}>{BRACKETS[b]?.count} respondents</div>
-                {sorted.map(([genre, cnt]) => (
-                  <div key={genre} style={{ marginBottom: 10 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                      <span style={{ fontFamily: MONO, fontSize: 9, color: GENRE_COLOR[genre] || MUTED, letterSpacing: '0.1em' }}>
-                        {genre.split(' / ')[0]}
-                      </span>
-                      <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>{Math.round(cnt / bTotal * 100)}%</span>
+              <Card key={b} style={{ padding:'14px 16px' }}>
+                <div style={{ fontFamily:COND, fontSize:18, fontWeight:700, color:AMBER, marginBottom:2 }}>{b}</div>
+                <div style={{ fontFamily:MONO, fontSize:10, color:DIM, marginBottom:12 }}>{BRACKETS[b]?.count} respondents</div>
+                {sorted.map(([genre,cnt])=>(
+                  <div key={genre} style={{ marginBottom:8 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:2 }}>
+                      <span style={{ fontFamily:MONO, fontSize:9, color:GENRE_COLOR[genre]||MUTED }}>{genre.split(' / ')[0]}</span>
+                      <span style={{ fontFamily:MONO, fontSize:9, color:MUTED }}>{Math.round(cnt/bTotal*100)}%</span>
                     </div>
-                    <AppearanceBar pct={cnt / bTotal * 100} color={GENRE_COLOR[genre] || MUTED} height={3} />
+                    <AppearanceBar pct={cnt/bTotal*100} color={GENRE_COLOR[genre]||MUTED} height={3}/>
                   </div>
                 ))}
               </Card>
@@ -613,57 +524,53 @@ function TabGenre() {
   );
 }
 
-// ─── TAB: AGE ─────────────────────────────────────────────────────────────────
+// ─── TAB: AGE ────────────────────────────────────────────────────────────────
 function TabAge() {
-  const bracketKeys = ["18–24", "25–29", "30–34", "35–39", "40+"];
-
+  const m = useMobile();
+  const bracketKeys = ["18–24","25–29","30–34","35–39","40+"];
+  const pad = m ? '20px 16px' : '36px 48px';
   return (
-    <div style={{ padding: '36px 48px' }}>
-      {/* Bracket stats */}
-      <SectionDivider label="Respondents by Age Bracket" />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 40 }}>
-        {bracketKeys.map(b => (
-          <Card key={b} style={{ textAlign: 'center' }}>
-            <div style={{ fontFamily: COND, fontSize: 36, fontWeight: 700, color: AMBER }}>{BRACKETS[b].count}</div>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: '0.14em' }}>{b}</div>
+    <div style={{ padding:pad }}>
+      <SectionDivider label="Respondents by Age Group"/>
+      <div style={{ display:'grid', gridTemplateColumns:m?'repeat(3,1fr)':'repeat(5,1fr)', gap:10, marginBottom:32 }}>
+        {bracketKeys.map(b=>(
+          <Card key={b} style={{ textAlign:'center', padding:'16px 12px' }}>
+            <div style={{ fontFamily:COND, fontSize:32, fontWeight:700, color:AMBER }}>{BRACKETS[b].count}</div>
+            <div style={{ fontFamily:MONO, fontSize:10, color:MUTED, letterSpacing:'0.12em' }}>{b}</div>
           </Card>
         ))}
       </div>
-
-      {/* Top picks per bracket */}
-      <SectionDivider label="Top Picks by Age Group" />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 40 }}>
-        {bracketKeys.map(b => (
-          <Card key={b} style={{ padding: '16px 18px' }}>
-            <div style={{ fontFamily: COND, fontSize: 18, fontWeight: 700, color: AMBER, marginBottom: 14 }}>{b}</div>
-            {BRACKETS[b].top.slice(0, 5).map((item, i) => (
-              <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: `1px solid ${BORDER}` }}>
-                <div style={{ fontFamily: BODY, fontSize: 12, color: i === 0 ? TEXT : MUTED }}>{item.name}</div>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: i === 0 ? AMBER : DIM }}>{item.n}</div>
+      <SectionDivider label="Top Picks by Age Group"/>
+      <div style={{ display:'grid', gridTemplateColumns:m?'1fr 1fr':'repeat(5,1fr)', gap:10, marginBottom:36 }}>
+        {bracketKeys.map(b=>(
+          <Card key={b} style={{ padding:'14px 16px' }}>
+            <div style={{ fontFamily:COND, fontSize:16, fontWeight:700, color:AMBER, marginBottom:12 }}>{b}</div>
+            {BRACKETS[b].top.slice(0,5).map((item,i)=>(
+              <div key={item.name} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:`1px solid ${BORDER}` }}>
+                <div style={{ fontFamily:BODY, fontSize:11, color:i===0?TEXT:MUTED, paddingRight:4 }}>{item.name}</div>
+                <div style={{ fontFamily:MONO, fontSize:10, color:i===0?AMBER:DIM, flexShrink:0 }}>{item.n}</div>
               </div>
             ))}
           </Card>
         ))}
       </div>
-
-      {/* Fan age per group */}
-      <SectionDivider label="Fan Age by Group" />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+      <SectionDivider label="Fan Age by Group"/>
+      <div style={{ display:'grid', gridTemplateColumns:m?'1fr':'1fr 1fr', gap:28 }}>
         <div>
           <Label color={TEAL}>Youngest Fans</Label>
-          {MEDIAN_AGES.slice(0, 10).map(g => (
-            <div key={g.name} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: `1px solid ${BORDER}` }}>
-              <div style={{ fontFamily: BODY, fontSize: 13, color: TEXT, flex: 1 }}>{g.name}</div>
-              <div style={{ fontFamily: COND, fontSize: 22, fontWeight: 700, color: TEAL, minWidth: 48, textAlign: 'right' }}>{Math.round(g.median)}</div>
+          {MEDIAN_AGES.slice(0,10).map(g=>(
+            <div key={g.name} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 0', borderBottom:`1px solid ${BORDER}` }}>
+              <div style={{ fontFamily:BODY, fontSize:13, color:TEXT, flex:1 }}>{g.name}</div>
+              <div style={{ fontFamily:COND, fontSize:22, fontWeight:700, color:TEAL, minWidth:40, textAlign:'right' }}>{g.median}</div>
             </div>
           ))}
         </div>
         <div>
           <Label color={AMBER}>Eldest Fans</Label>
-          {MEDIAN_AGES.slice(-10).reverse().map(g => (
-            <div key={g.name} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: `1px solid ${BORDER}` }}>
-              <div style={{ fontFamily: BODY, fontSize: 13, color: TEXT, flex: 1 }}>{g.name}</div>
-              <div style={{ fontFamily: COND, fontSize: 22, fontWeight: 700, color: AMBER, minWidth: 48, textAlign: 'right' }}>{Math.round(g.median)}</div>
+          {MEDIAN_AGES.slice(-10).reverse().map(g=>(
+            <div key={g.name} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 0', borderBottom:`1px solid ${BORDER}` }}>
+              <div style={{ fontFamily:BODY, fontSize:13, color:TEXT, flex:1 }}>{g.name}</div>
+              <div style={{ fontFamily:COND, fontSize:22, fontWeight:700, color:AMBER, minWidth:40, textAlign:'right' }}>{g.median}</div>
             </div>
           ))}
         </div>
@@ -674,92 +581,83 @@ function TabAge() {
 
 // ─── TAB: GENDER ─────────────────────────────────────────────────────────────
 function TabGender() {
-  const topMale = GROUPS.filter(g => g.male > 0).sort((a, b) => b.male - a.male).slice(0, 12);
-  const topFemale = GROUPS.filter(g => g.female > 0).sort((a, b) => b.female - a.female).slice(0, 12);
-  const maxM = topMale[0].male;
-  const maxF = topFemale[0].female;
-
-  const skewed = GROUPS.filter(g => g.total >= 3).map(g => ({
-    ...g,
-    skew: g.total > 0 ? (g.female - g.male) / g.total : 0,
-  })).sort((a, b) => b.skew - a.skew);
-  const femaleSkewed = skewed.slice(0, 5);
-  const maleSkewed = [...skewed].sort((a, b) => a.skew - b.skew).slice(0, 5);
-
+  const m = useMobile();
+  const topMale = GROUPS.filter(g=>g.male>0).sort((a,b)=>b.male-a.male).slice(0,12);
+  const topFemale = GROUPS.filter(g=>g.female>0).sort((a,b)=>b.female-a.female).slice(0,12);
+  const maxM = topMale[0].male, maxF = topFemale[0].female;
+  const skewed = GROUPS.filter(g=>g.total>=3).map(g=>({...g,skew:g.total>0?(g.female-g.male)/g.total:0})).sort((a,b)=>b.skew-a.skew);
+  const femaleSkewed = skewed.slice(0,5);
+  const maleSkewed = [...skewed].sort((a,b)=>a.skew-b.skew).slice(0,5);
+  const pad = m ? '20px 16px' : '36px 48px';
   return (
-    <div style={{ padding: '36px 48px' }}>
-      {/* Headers */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32, marginBottom: 36 }}>
-        <Card style={{ textAlign: 'center' }}>
-          <div style={{ fontFamily: COND, fontSize: 52, fontWeight: 900, color: TEAL }}>56</div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: '0.14em' }}>Male Respondents</div>
+    <div style={{ padding:pad }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:28 }}>
+        <Card style={{ textAlign:'center' }}>
+          <div style={{ fontFamily:COND, fontSize:m?40:52, fontWeight:900, color:TEAL }}>56</div>
+          <div style={{ fontFamily:MONO, fontSize:10, color:MUTED }}>Male</div>
         </Card>
-        <Card style={{ textAlign: 'center' }}>
-          <div style={{ fontFamily: COND, fontSize: 52, fontWeight: 900, color: AMBER }}>46</div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: '0.14em' }}>Female Respondents</div>
+        <Card style={{ textAlign:'center' }}>
+          <div style={{ fontFamily:COND, fontSize:m?40:52, fontWeight:900, color:AMBER }}>46</div>
+          <div style={{ fontFamily:MONO, fontSize:10, color:MUTED }}>Female</div>
         </Card>
       </div>
-
-      {/* Top picks side by side */}
-      <SectionDivider label="Top Picks by Gender" />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32, marginBottom: 40 }}>
+      <SectionDivider label="Top Picks by Gender"/>
+      <div style={{ display:'grid', gridTemplateColumns:m?'1fr':'1fr 1fr', gap:24, marginBottom:36 }}>
         <div>
-          <Label color={TEAL}>Male — by appearances</Label>
-          {topMale.map((g, i) => (
-            <div key={g.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: `1px solid ${BORDER}` }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: DIM, minWidth: 20 }}>{String(i + 1).padStart(2, '0')}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: BODY, fontSize: 13, color: TEXT, marginBottom: 5 }}>{g.name}</div>
-                <AppearanceBar pct={(g.male / maxM) * 100} color={TEAL} />
+          <Label color={TEAL}>Male</Label>
+          {topMale.map((g,i)=>(
+            <div key={g.name} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 0', borderBottom:`1px solid ${BORDER}` }}>
+              <div style={{ fontFamily:MONO, fontSize:10, color:DIM, minWidth:18 }}>{String(i+1).padStart(2,'0')}</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:BODY, fontSize:13, color:TEXT, marginBottom:4 }}>{g.name}</div>
+                <AppearanceBar pct={(g.male/maxM)*100} color={TEAL}/>
               </div>
-              <div style={{ fontFamily: COND, fontSize: 22, fontWeight: 700, color: i === 0 ? TEAL : MUTED }}>{g.male}</div>
+              <div style={{ fontFamily:COND, fontSize:20, fontWeight:700, color:i===0?TEAL:MUTED }}>{g.male}</div>
             </div>
           ))}
         </div>
         <div>
-          <Label color={AMBER}>Female — by appearances</Label>
-          {topFemale.map((g, i) => (
-            <div key={g.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: `1px solid ${BORDER}` }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: DIM, minWidth: 20 }}>{String(i + 1).padStart(2, '0')}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: BODY, fontSize: 13, color: TEXT, marginBottom: 5 }}>{g.name}</div>
-                <AppearanceBar pct={(g.female / maxF) * 100} color={AMBER} />
+          <Label color={AMBER}>Female</Label>
+          {topFemale.map((g,i)=>(
+            <div key={g.name} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 0', borderBottom:`1px solid ${BORDER}` }}>
+              <div style={{ fontFamily:MONO, fontSize:10, color:DIM, minWidth:18 }}>{String(i+1).padStart(2,'0')}</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:BODY, fontSize:13, color:TEXT, marginBottom:4 }}>{g.name}</div>
+                <AppearanceBar pct={(g.female/maxF)*100} color={AMBER}/>
               </div>
-              <div style={{ fontFamily: COND, fontSize: 22, fontWeight: 700, color: i === 0 ? AMBER : MUTED }}>{g.female}</div>
+              <div style={{ fontFamily:COND, fontSize:20, fontWeight:700, color:i===0?AMBER:MUTED }}>{g.female}</div>
             </div>
           ))}
         </div>
       </div>
-
-      {/* Gender skew */}
-      <SectionDivider label="Strongest Gender Skews (min 3 appearances)" />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+      <SectionDivider label="Strongest Gender Skews"/>
+      <div style={{ display:'grid', gridTemplateColumns:m?'1fr':'1fr 1fr', gap:24 }}>
         <div>
           <Label color={AMBER}>Female-Dominant</Label>
-          {femaleSkewed.map(g => (
-            <div key={g.name} style={{ padding: '10px 0', borderBottom: `1px solid ${BORDER}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                <div style={{ fontFamily: BODY, fontSize: 13, color: TEXT }}>{g.name}</div>
+          {femaleSkewed.map(g=>(
+            <div key={g.name} style={{ padding:'10px 0', borderBottom:`1px solid ${BORDER}` }}>
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
+                <div style={{ fontFamily:BODY, fontSize:13, color:TEXT }}>{g.name}</div>
                 <Mono size={10} color={MUTED}>F:{g.female} M:{g.male}</Mono>
               </div>
-              <div style={{ display: 'flex', height: 4, gap: 1 }}>
-                <div style={{ flex: g.female, background: AMBER }} />
-                <div style={{ flex: g.male, background: TEAL }} />
+              <div style={{ display:'flex', height:4, gap:1 }}>
+                <div style={{ flex:g.female, background:AMBER }}/>
+                <div style={{ flex:g.male, background:TEAL }}/>
               </div>
             </div>
           ))}
         </div>
         <div>
           <Label color={TEAL}>Male-Dominant</Label>
-          {maleSkewed.map(g => (
-            <div key={g.name} style={{ padding: '10px 0', borderBottom: `1px solid ${BORDER}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                <div style={{ fontFamily: BODY, fontSize: 13, color: TEXT }}>{g.name}</div>
+          {maleSkewed.map(g=>(
+            <div key={g.name} style={{ padding:'10px 0', borderBottom:`1px solid ${BORDER}` }}>
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
+                <div style={{ fontFamily:BODY, fontSize:13, color:TEXT }}>{g.name}</div>
                 <Mono size={10} color={MUTED}>M:{g.male} F:{g.female}</Mono>
               </div>
-              <div style={{ display: 'flex', height: 4, gap: 1 }}>
-                <div style={{ flex: g.female, background: AMBER }} />
-                <div style={{ flex: g.male, background: TEAL }} />
+              <div style={{ display:'flex', height:4, gap:1 }}>
+                <div style={{ flex:g.female, background:AMBER }}/>
+                <div style={{ flex:g.male, background:TEAL }}/>
               </div>
             </div>
           ))}
@@ -769,103 +667,39 @@ function TabGender() {
   );
 }
 
-// ─── TAB: PROFILES ────────────────────────────────────────────────────────────
+// ─── TAB: PROFILES ───────────────────────────────────────────────────────────
 function TabProfiles() {
+  const m = useMobile();
   const archetypes = [
-    {
-      id: 'purist-rb',
-      label: 'The R&B Purist',
-      count: 17,
-      color: AMBER,
-      desc: 'All four picks came from R&B and Soul. These respondents stayed in their lane entirely — and their lane is the most represented genre in the survey.',
-      examples: [
-        { num: 1, age: 29, gender: 'F', picks: ["New Edition","Destiny's Child","The Temptations","Kirk Franklin & Family"] },
-        { num: 6, age: 35, gender: 'F', picks: ["New Edition","Destiny's Child","3LW","112"] },
-        { num: 25, age: 44, gender: 'F', picks: ["Jodeci","Xscape","Dru Hill","SWV"] },
-      ]
-    },
-    {
-      id: 'hip-hop',
-      label: 'The Hip-Hop Head',
-      count: 6,
-      color: TEAL,
-      desc: 'Four hip-hop picks, no exceptions. A smaller but committed group — and the purest expression of genre loyalty in the dataset.',
-      examples: [
-        { num: 43, age: 27, gender: 'M', picks: ["Wu-Tang Clan","G-Unit","ASAP Mob","Three 6 Mafia"] },
-        { num: 50, age: 30, gender: 'M', picks: ["OutKast","NWA","Migos","G-Unit"] },
-        { num: 54, age: 30, gender: 'M', picks: ["OutKast","Goodie Mob","G-Unit","Young Money"] },
-      ]
-    },
-    {
-      id: 'faithful',
-      label: 'The Faithful',
-      count: 42,
-      color: '#8B9FE8',
-      desc: 'Two genres represented. The majority of the survey. Typically an R&B foundation with one hip-hop or pop pick — or a hip-hop base with an R&B softener.',
-      examples: [
-        { num: 16, age: 30, gender: 'M', picks: ["Boyz II Men","Destiny's Child","TLC","SWV"] },
-        { num: 7, age: 50, gender: 'F', picks: ["Wu-Tang Clan","Boyz II Men","SWV","O'Jays"] },
-        { num: 71, age: 38, gender: 'M', picks: ["Three 6 Mafia","Wu-Tang Clan","Cash Money","OutKast"] },
-      ]
-    },
-    {
-      id: 'eclectic',
-      label: 'The Eclectic',
-      count: 35,
-      color: '#E8875D',
-      desc: 'Three or more genres across four picks. These respondents refused to be categorized. Often the most interesting individual lists in the dataset.',
-      examples: [
-        { num: 2, age: 33, gender: 'M', picks: ["The Beatles","Fall Out Boy","OutKast","Earth, Wind & Fire"] },
-        { num: 41, age: 19, gender: 'M', picks: ["OutKast","Coldplay","Daft Punk","TLC"] },
-        { num: 13, age: 40, gender: 'M', picks: ["Bone Thugs N Harmony","Queen","The Beatles","OutKast"] },
-      ]
-    },
-    {
-      id: 'pop-rock',
-      label: 'The Rock Bloc',
-      count: 2,
-      color: '#8B9FE8',
-      desc: 'Only 2 respondents went all pop/rock. In a survey that skews heavily toward Black music, this makes them the clearest outliers in the dataset.',
-      examples: [
-        { num: 73, age: 21, gender: 'M', picks: ["Imagine Dragons","Twenty One Pilots","She Wants Revenge","Poor Mans Poison"] },
-        { num: 90, age: 33, gender: 'F', picks: ["Fall Out Boy","Fleetwood Mac","NSYNC","Daft Punk"] },
-      ]
-    },
+    { id:'rb', label:'The R&B Purist', count:17, color:AMBER, desc:'All four picks from R&B and Soul. These respondents stayed in their lane entirely — and their lane is the most represented genre in the survey.', examples:[{num:1,age:29,gender:'F',picks:["New Edition","Destiny's Child","The Temptations","Kirk Franklin & Family"]},{num:6,age:35,gender:'F',picks:["New Edition","Destiny's Child","3LW","112"]},{num:25,age:44,gender:'F',picks:["Jodeci","Xscape","Dru Hill","SWV"]}]},
+    { id:'hh', label:'The Hip-Hop Head', count:6, color:TEAL, desc:'Four hip-hop picks, no exceptions. A smaller but committed group — and the purest expression of genre loyalty in the dataset.', examples:[{num:43,age:27,gender:'M',picks:["Wu-Tang Clan","G-Unit","ASAP Mob","Three 6 Mafia"]},{num:50,age:30,gender:'M',picks:["OutKast","NWA","Migos","G-Unit"]},{num:54,age:30,gender:'M',picks:["OutKast","Goodie Mob","G-Unit","Young Money"]}]},
+    { id:'faithful', label:'The Faithful', count:42, color:'#8B9FE8', desc:'Two genres represented. The majority of the survey. Typically an R&B foundation with one hip-hop or pop pick.', examples:[{num:16,age:30,gender:'M',picks:["Boyz II Men","Destiny's Child","TLC","SWV"]},{num:7,age:50,gender:'F',picks:["Wu-Tang Clan","Boyz II Men","SWV","O'Jays"]},{num:71,age:38,gender:'M',picks:["Three 6 Mafia","Wu-Tang Clan","Cash Money","OutKast"]}]},
+    { id:'eclectic', label:'The Eclectic', count:35, color:'#E8875D', desc:'Three or more genres across four picks. These respondents refused to be categorized. Often the most interesting individual lists.', examples:[{num:2,age:33,gender:'M',picks:["The Beatles","Fall Out Boy","OutKast","Earth, Wind & Fire"]},{num:41,age:19,gender:'M',picks:["OutKast","Coldplay","Daft Punk","TLC"]},{num:13,age:40,gender:'M',picks:["Bone Thugs N Harmony","Queen","The Beatles","OutKast"]}]},
+    { id:'rock', label:'The Rock Bloc', count:2, color:'#8B9FE8', desc:'Only 2 respondents went all pop/rock. In a survey that skews heavily toward Black music, the clearest outliers in the dataset.', examples:[{num:73,age:21,gender:'M',picks:["Imagine Dragons","Twenty One Pilots","She Wants Revenge","Poor Mans Poison"]},{num:90,age:33,gender:'F',picks:["Fall Out Boy","Fleetwood Mac","NSYNC","Daft Punk"]}]},
   ];
-
+  const pad = m ? '20px 16px' : '36px 48px';
   return (
-    <div style={{ padding: '36px 48px' }}>
-      <SectionDivider label="Respondent Archetypes by Genre Composition" />
-
-      {/* Summary bar */}
-      <div style={{ display: 'flex', height: 10, borderRadius: 3, overflow: 'hidden', marginBottom: 32, gap: 2 }}>
-        {archetypes.map(a => (
-          <div key={a.id} style={{ flex: a.count, background: a.color, opacity: 0.85 }} title={`${a.label}: ${a.count}`} />
-        ))}
+    <div style={{ padding:pad }}>
+      <SectionDivider label="Respondent Archetypes by Genre Composition"/>
+      <div style={{ display:'flex', height:10, borderRadius:3, overflow:'hidden', marginBottom:28, gap:2 }}>
+        {archetypes.map(a=><div key={a.id} style={{ flex:a.count, background:a.color, opacity:0.85 }}/>)}
       </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-        {archetypes.map(a => (
-          <Card key={a.id} style={{ borderLeft: `3px solid ${a.color}` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-              <div style={{ fontFamily: COND, fontSize: 22, fontWeight: 700, color: a.color }}>{a.label}</div>
-              <div style={{ fontFamily: COND, fontSize: 36, fontWeight: 900, color: a.color, lineHeight: 1 }}>{a.count}</div>
+      <div style={{ display:'grid', gridTemplateColumns:m?'1fr':'1fr 1fr', gap:16 }}>
+        {archetypes.map(a=>(
+          <Card key={a.id} style={{ borderLeft:`3px solid ${a.color}` }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
+              <div style={{ fontFamily:COND, fontSize:m?18:22, fontWeight:700, color:a.color }}>{a.label}</div>
+              <div style={{ fontFamily:COND, fontSize:32, fontWeight:900, color:a.color, lineHeight:1 }}>{a.count}</div>
             </div>
-            <div style={{ fontFamily: BODY, fontSize: 13, color: MUTED, lineHeight: 1.65, marginBottom: 16 }}>{a.desc}</div>
-            <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 14 }}>
+            <div style={{ fontFamily:BODY, fontSize:13, color:MUTED, lineHeight:1.6, marginBottom:14 }}>{a.desc}</div>
+            <div style={{ borderTop:`1px solid ${BORDER}`, paddingTop:12 }}>
               <Label color={DIM}>Example Lists</Label>
-              {a.examples.map(ex => (
-                <div key={ex.num} style={{ marginBottom: 10 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: DIM, marginBottom: 4 }}>
-                    #{ex.num} · {ex.gender === 'F' ? 'Female' : 'Male'} · Age {ex.age}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {ex.picks.map(p => (
-                      <span key={p} style={{
-                        fontFamily: BODY, fontSize: 11, color: TEXT,
-                        background: SURF2, border: `1px solid ${BORDER}`,
-                        borderRadius: 2, padding: '2px 8px'
-                      }}>{p}</span>
+              {a.examples.map(ex=>(
+                <div key={ex.num} style={{ marginBottom:10 }}>
+                  <div style={{ fontFamily:MONO, fontSize:10, color:DIM, marginBottom:4 }}>#{ex.num} · {ex.gender==='F'?'Female':'Male'} · Age {ex.age}</div>
+                  <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                    {ex.picks.map(p=>(
+                      <span key={p} style={{ fontFamily:BODY, fontSize:11, color:TEXT, background:SURF2, border:`1px solid ${BORDER}`, borderRadius:2, padding:'2px 7px' }}>{p}</span>
                     ))}
                   </div>
                 </div>
@@ -878,136 +712,100 @@ function TabProfiles() {
   );
 }
 
-// ─── TAB: ALL RESPONSES ───────────────────────────────────────────────────────
+// ─── TAB: ALL RESPONSES ──────────────────────────────────────────────────────
 function TabResponses() {
+  const m = useMobile();
   const winner = RESPONDENTS[0];
   const [search, setSearch] = useState('');
   const [sortCol, setSortCol] = useState('score');
   const [sortDir, setSortDir] = useState('desc');
 
   const handleSort = (col) => {
-    if (sortCol === col) {
-      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortCol(col);
-      setSortDir(col === 'gender' ? 'asc' : 'desc');
-    }
+    if (sortCol===col) setSortDir(d=>d==='asc'?'desc':'asc');
+    else { setSortCol(col); setSortDir(col==='gender'?'asc':'desc'); }
   };
 
-  const sorted = useMemo(() => {
+  const sorted = useMemo(()=>{
     const base = search.trim()
-      ? RESPONDENTS.filter(r =>
-          r.picks.some(p => p.toLowerCase().includes(search.toLowerCase())) ||
-          r.gender.toLowerCase().includes(search.toLowerCase())
-        )
+      ? RESPONDENTS.filter(r=>r.picks.some(p=>p.toLowerCase().includes(search.toLowerCase()))||r.gender.toLowerCase().includes(search.toLowerCase()))
       : [...RESPONDENTS];
-    return base.sort((a, b) => {
-      let av = a[sortCol], bv = b[sortCol];
-      if (sortCol === 'gender') { av = av[0]; bv = bv[0]; }
-      if (typeof av === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-      return sortDir === 'asc' ? av - bv : bv - av;
+    return base.sort((a,b)=>{
+      let av=a[sortCol],bv=b[sortCol];
+      if(sortCol==='gender'){av=av[0];bv=bv[0];}
+      if(typeof av==='string') return sortDir==='asc'?av.localeCompare(bv):bv.localeCompare(av);
+      return sortDir==='asc'?av-bv:bv-av;
     });
-  }, [search, sortCol, sortDir]);
+  },[search,sortCol,sortDir]);
 
-  const ColHead = ({ col, label, align = 'left' }) => {
-    const active = sortCol === col;
-    const arrow = active ? (sortDir === 'asc' ? ' ↑' : ' ↓') : '';
+  const ColHead = ({ col, label, align='left' }) => {
+    const active = sortCol===col;
     return (
-      <div onClick={() => handleSort(col)} style={{
-        fontFamily: MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
-        color: active ? AMBER : DIM, cursor: 'pointer', userSelect: 'none',
-        textAlign: align, transition: 'color 0.15s',
-      }}>
-        {label}{arrow}
+      <div onClick={()=>handleSort(col)} style={{ fontFamily:MONO, fontSize:9, letterSpacing:'0.12em', textTransform:'uppercase', color:active?AMBER:DIM, cursor:'pointer', userSelect:'none', textAlign:align }}>
+        {label}{active?(sortDir==='asc'?' ↑':' ↓'):''}
       </div>
     );
   };
 
+  const pad = m ? '20px 16px' : '36px 48px';
+  const cols = m ? '36px 36px 1fr 44px' : '50px 80px 60px 1fr 80px';
+
   return (
-    <div style={{ padding: '36px 48px' }}>
-      {/* Winner callout */}
-      <div style={{
-        border: `1px solid ${AMBER}`, background: 'rgba(245,196,48,0.04)',
-        borderRadius: 3, padding: '24px 28px', marginBottom: 28, position: 'relative'
-      }}>
-        <div style={{ fontFamily: MONO, fontSize: 10, color: AMBER, letterSpacing: '0.2em', marginBottom: 14 }}>
-          // Most Popular List · Respondent #{winner.num}
+    <div style={{ padding:pad }}>
+      {/* Winner */}
+      <div style={{ border:`1px solid ${AMBER}`, background:'rgba(245,196,48,0.04)', borderRadius:3, padding:m?'16px 16px':'24px 28px', marginBottom:24 }}>
+        <div style={{ fontFamily:MONO, fontSize:10, color:AMBER, letterSpacing:'0.18em', marginBottom:12 }}>
+          // Most Popular List · #{winner.num}
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 32, flexWrap: 'wrap' }}>
+        <div style={{ display:'flex', alignItems:m?'flex-start':'flex-end', gap:20, flexDirection:m?'column':'row' }}>
           <div>
-            <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED, marginBottom: 4 }}>
-              {winner.gender} · Age {winner.age}
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {winner.picks.map(p => (
-                <div key={p} style={{
-                  fontFamily: BODY, fontSize: 14, fontWeight: 500, color: TEXT,
-                  background: SURF, border: `1px solid ${BORDER}`,
-                  borderRadius: 2, padding: '6px 14px'
-                }}>{p}</div>
+            <div style={{ fontFamily:MONO, fontSize:11, color:MUTED, marginBottom:8 }}>{winner.gender} · Age {winner.age}</div>
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+              {winner.picks.map(p=>(
+                <div key={p} style={{ fontFamily:BODY, fontSize:m?12:14, fontWeight:500, color:TEXT, background:SURF, border:`1px solid ${BORDER}`, borderRadius:2, padding:'5px 12px' }}>{p}</div>
               ))}
             </div>
           </div>
-          <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginBottom: 2 }}>Popularity Score</div>
-            <div style={{ fontFamily: COND, fontSize: 56, fontWeight: 900, color: AMBER, lineHeight: 1 }}>{winner.score}</div>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>Sum of each group's total appearances</div>
+          <div style={{ textAlign:m?'left':'right', flexShrink:0 }}>
+            <div style={{ fontFamily:MONO, fontSize:10, color:MUTED, marginBottom:2 }}>Score</div>
+            <div style={{ fontFamily:COND, fontSize:m?40:56, fontWeight:900, color:AMBER, lineHeight:1 }}>{winner.score}</div>
+            <div style={{ fontFamily:MONO, fontSize:10, color:MUTED }}>Sum of appearances</div>
           </div>
         </div>
       </div>
 
-      {/* Search + result count */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search by group or gender..."
-          style={{
-            background: SURF, border: `1px solid ${BORDER}`, borderRadius: 3,
-            padding: '8px 14px', fontFamily: BODY, fontSize: 13, color: TEXT,
-            outline: 'none', width: 280,
-          }}
-        />
-        <div style={{ fontFamily: MONO, fontSize: 10, color: DIM }}>
-          {sorted.length} of {RESPONDENTS.length} respondents
-        </div>
-        <div style={{ fontFamily: MONO, fontSize: 10, color: DIM, marginLeft: 'auto' }}>
-          Click column headers to sort
-        </div>
+      {/* Search */}
+      <div style={{ display:'flex', gap:10, marginBottom:14, flexWrap:'wrap', alignItems:'center' }}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by group or gender..."
+          style={{ background:SURF, border:`1px solid ${BORDER}`, borderRadius:3, padding:'8px 12px', fontFamily:BODY, fontSize:13, color:TEXT, outline:'none', width:m?'100%':260 }}/>
+        <div style={{ fontFamily:MONO, fontSize:10, color:DIM }}>{sorted.length} of {RESPONDENTS.length}</div>
+        {!m&&<div style={{ fontFamily:MONO, fontSize:10, color:DIM, marginLeft:'auto' }}>Click headers to sort</div>}
       </div>
 
-      {/* Table header */}
-      <div style={{ display: 'grid', gridTemplateColumns: '50px 80px 60px 1fr 80px', gap: 12, padding: '0 14px 10px', borderBottom: `1px solid ${BORDER}` }}>
-        <ColHead col="num" label="#" />
-        <ColHead col="gender" label="Gender" />
-        <ColHead col="age" label="Age" />
-        <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: DIM }}>Picks</div>
-        <ColHead col="score" label="Score" align="right" />
+      {/* Table */}
+      <div style={{ display:'grid', gridTemplateColumns:cols, gap:10, padding:'0 12px 8px', borderBottom:`1px solid ${BORDER}` }}>
+        <ColHead col="num" label="#"/>
+        <ColHead col="gender" label={m?'G':'Gender'}/>
+        {!m&&<ColHead col="age" label="Age"/>}
+        <div style={{ fontFamily:MONO, fontSize:9, letterSpacing:'0.12em', textTransform:'uppercase', color:DIM }}>Picks</div>
+        <ColHead col="score" label="Score" align="right"/>
       </div>
 
-      {/* Table rows */}
-      {sorted.map((r, i) => {
-        const isWinner = r.num === winner.num;
+      {sorted.map((r,i)=>{
+        const isWinner = r.num===winner.num;
         return (
-          <div key={r.num} style={{
-            display: 'grid', gridTemplateColumns: '50px 80px 60px 1fr 80px',
-            gap: 12, padding: '12px 14px', borderBottom: `1px solid ${BORDER}`,
-            background: isWinner ? 'rgba(245,196,48,0.03)' : i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)',
-            alignItems: 'center',
-          }}>
-            <Mono color={isWinner ? AMBER : DIM}>{r.num}</Mono>
-            <Mono color={r.gender === 'Female' ? AMBER : TEAL}>{r.gender[0]}</Mono>
-            <Mono color={MUTED}>{r.age}</Mono>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {r.picks.map(p => (
-                <span key={p} style={{
-                  fontFamily: BODY, fontSize: 11, color: TEXT,
-                  background: SURF2, borderRadius: 2, padding: '2px 7px',
-                  border: `1px solid ${BORDER}`
-                }}>{p}</span>
-              ))}
+          <div key={r.num} style={{ display:'grid', gridTemplateColumns:cols, gap:10, padding:'10px 12px', borderBottom:`1px solid ${BORDER}`, background:isWinner?'rgba(245,196,48,0.03)':i%2===0?'transparent':'rgba(255,255,255,0.01)', alignItems:'center' }}>
+            <Mono color={isWinner?AMBER:DIM} size={m?10:11}>{r.num}</Mono>
+            <Mono color={r.gender==='Female'?AMBER:TEAL} size={m?10:11}>{r.gender[0]}</Mono>
+            {!m&&<Mono color={MUTED}>{r.age}</Mono>}
+            <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+              {m
+                ? <span style={{ fontFamily:BODY, fontSize:11, color:TEXT }}>{r.picks.join(', ')}</span>
+                : r.picks.map(p=>(
+                    <span key={p} style={{ fontFamily:BODY, fontSize:11, color:TEXT, background:SURF2, borderRadius:2, padding:'2px 6px', border:`1px solid ${BORDER}` }}>{p}</span>
+                  ))
+              }
             </div>
-            <div style={{ fontFamily: COND, fontSize: 18, fontWeight: 700, color: isWinner ? AMBER : sortCol === 'score' && i < 5 ? AMBER + '70' : MUTED, textAlign: 'right' }}>{r.score}</div>
+            <div style={{ fontFamily:COND, fontSize:m?16:18, fontWeight:700, color:isWinner?AMBER:sortCol==='score'&&i<5?AMBER+'70':MUTED, textAlign:'right' }}>{r.score}</div>
           </div>
         );
       })}
@@ -1017,89 +815,79 @@ function TabResponses() {
 
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 const TABS = [
-  { id: 'overview', label: 'Overview', component: TabOverview },
-  { id: 'groups', label: 'The Groups', component: TabGroups },
-  { id: 'genre', label: 'Genre', component: TabGenre },
-  { id: 'age', label: 'Age', component: TabAge },
-  { id: 'gender', label: 'Gender', component: TabGender },
-  { id: 'profiles', label: 'Profiles', component: TabProfiles },
-  { id: 'responses', label: 'All Responses', component: TabResponses },
+  { id:'overview', label:'Overview', short:'Overview', component:TabOverview },
+  { id:'groups',   label:'The Groups', short:'Groups',  component:TabGroups },
+  { id:'genre',    label:'Genre',      short:'Genre',   component:TabGenre },
+  { id:'age',      label:'Age',        short:'Age',     component:TabAge },
+  { id:'gender',   label:'Gender',     short:'Gender',  component:TabGender },
+  { id:'profiles', label:'Profiles',   short:'Profiles',component:TabProfiles },
+  { id:'responses',label:'All Responses',short:'Responses',component:TabResponses },
 ];
 
 export default function App() {
   const [tab, setTab] = useState('overview');
-  const [pulse, setPulse] = useState(true);
-  const Active = TABS.find(t => t.id === tab).component;
+  const isMobile = useIsMobile();
+  const Active = TABS.find(t=>t.id===tab).component;
+  const hPad = isMobile ? '20px 16px 16px' : '44px 48px 28px';
+  const navPad = isMobile ? '0 8px' : '0 48px';
 
   return (
-    <div style={{ minHeight: '100vh', background: BG, color: TEXT, fontFamily: BODY }}>
-      {/* Header */}
-      <div style={{ padding: '44px 48px 32px', borderBottom: `1px solid ${BORDER}`, position: 'relative', overflow: 'hidden' }}>
-        <div style={{
-          position: 'absolute', top: -100, right: -100, width: 400, height: 400,
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(245,196,48,0.06) 0%, transparent 70%)',
-          pointerEvents: 'none'
-        }} />
-        {/* Live signal */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-          <div style={{
-            width: 7, height: 7, borderRadius: '50%', background: TEAL,
-            boxShadow: `0 0 8px ${TEAL}`,
-            animation: 'pulse 2s infinite'
-          }} />
-          <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: TEAL }}>
-            Survey Says · Vol. III · Now Broadcasting
-          </span>
-        </div>
-        <div style={{ fontFamily: COND, fontSize: 68, fontWeight: 900, lineHeight: 0.88, textTransform: 'uppercase', color: '#E4F2FF', maxWidth: 700, marginBottom: 16 }}>
-          Greatest<br /><span style={{ color: AMBER }}>Music Groups</span><br />of All Time
-        </div>
-        <div style={{ fontFamily: BODY, fontSize: 14, fontWeight: 300, color: MUTED, marginBottom: 20 }}>
-          102 respondents. 4 picks each. Every genre on the table.
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          {[['102', 'Respondents'], ['126', 'Unique Groups'], ['30.5', 'Median Age'], ['5', 'Genres']].map(([v, l]) => (
-            <div key={l} style={{ padding: '4px 14px', border: `1px solid ${BORDER2}`, borderRadius: 2, fontFamily: MONO, fontSize: 10, letterSpacing: '0.1em', color: MUTED }}>
-              <span style={{ color: TEXT }}>{v}</span> {l}
+    <MobileCtx.Provider value={isMobile}>
+      <div style={{ minHeight:'100vh', background:BG, color:TEXT, fontFamily:BODY }}>
+        {/* Header */}
+        <div style={{ padding:hPad, borderBottom:`1px solid ${BORDER}`, position:'relative', overflow:'hidden' }}>
+          <div style={{ position:'absolute', top:-100, right:-100, width:400, height:400, borderRadius:'50%', background:'radial-gradient(circle,rgba(245,196,48,0.06) 0%,transparent 70%)', pointerEvents:'none' }}/>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:isMobile?14:18 }}>
+            <div style={{ width:7, height:7, borderRadius:'50%', background:TEAL, boxShadow:`0 0 8px ${TEAL}`, animation:'pulse 2s infinite' }}/>
+            <span style={{ fontFamily:MONO, fontSize:10, letterSpacing:'0.2em', textTransform:'uppercase', color:TEAL }}>
+              Survey Says · Vol. III
+            </span>
+          </div>
+          <div style={{ fontFamily:COND, fontSize:isMobile?38:68, fontWeight:900, lineHeight:0.9, textTransform:'uppercase', color:'#E4F2FF', maxWidth:700, marginBottom:12 }}>
+            Greatest<br/><span style={{ color:AMBER }}>Music Groups</span><br/>of All Time
+          </div>
+          {!isMobile && (
+            <div style={{ fontFamily:BODY, fontSize:14, fontWeight:300, color:MUTED, marginBottom:16 }}>
+              102 respondents. 4 picks each. Every genre on the table.
             </div>
+          )}
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:isMobile?0:8 }}>
+            {[['102','Respondents'],['126','Groups'],['31','Avg. Age'],['5','Genres']].map(([v,l])=>(
+              <div key={l} style={{ padding:'4px 12px', border:`1px solid ${BORDER2}`, borderRadius:2, fontFamily:MONO, fontSize:isMobile?9:10, letterSpacing:'0.1em', color:MUTED }}>
+                <span style={{ color:TEXT }}>{v}</span> {l}
+              </div>
+            ))}
+          </div>
+          {!isMobile && (
+            <div style={{ marginTop:12, fontFamily:MONO, fontSize:10, color:DIM }}>By Aalaiyah Ticer & Kyle Hinson</div>
+          )}
+        </div>
+
+        {/* Nav */}
+        <div style={{ display:'flex', background:'#0C1828', borderBottom:`1px solid ${BORDER}`, padding:navPad, overflowX:'auto' }}>
+          {TABS.map(t=>(
+            <button key={t.id} onClick={()=>setTab(t.id)} style={{
+              padding:isMobile?'11px 10px':'13px 18px',
+              fontFamily:MONO, fontSize:isMobile?9:10, letterSpacing:isMobile?'0.06em':'0.12em', textTransform:'uppercase',
+              color:tab===t.id?AMBER:MUTED, background:'transparent', border:'none',
+              borderBottom:`2px solid ${tab===t.id?AMBER:'transparent'}`,
+              marginBottom:-1, cursor:'pointer', whiteSpace:'nowrap', flexShrink:0,
+              transition:'all 0.15s',
+            }}>
+              {isMobile ? t.short : t.label}
+            </button>
           ))}
         </div>
-        <div style={{ marginTop: 16, fontFamily: MONO, fontSize: 10, color: DIM, letterSpacing: '0.1em' }}>
-          By Aalaiyah Ticer & Kyle Hinson
-        </div>
+
+        {/* Content */}
+        <Active/>
+
+        {isMobile && (
+          <div style={{ padding:'16px', textAlign:'center', fontFamily:MONO, fontSize:9, color:DIM, borderTop:`1px solid ${BORDER}` }}>
+            By Aalaiyah Ticer & Kyle Hinson
+          </div>
+        )}
       </div>
-
-      {/* Nav */}
-      <div style={{ display: 'flex', background: '#0C1828', borderBottom: `1px solid ${BORDER}`, padding: '0 48px', overflowX: 'auto' }}>
-        {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
-            padding: '14px 20px',
-            fontFamily: MONO, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase',
-            color: tab === t.id ? AMBER : MUTED,
-            background: 'transparent', border: 'none',
-            borderBottom: `2px solid ${tab === t.id ? AMBER : 'transparent'}`,
-            marginBottom: -1, cursor: 'pointer', whiteSpace: 'nowrap',
-            transition: 'all 0.15s',
-          }}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Content */}
-      <Active />
-
-      <style>{`
-        
-        * { box-sizing: border-box; }
-        input::placeholder { color: #2A4560; }
-        input:focus { border-color: #F5C430 !important; }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: #07101F; }
-        ::-webkit-scrollbar-thumb { background: #152538; border-radius: 2px; }
-      `}</style>
-    </div>
+    </MobileCtx.Provider>
   );
 }
