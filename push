@@ -1,6 +1,0 @@
-cd groupssurvey
-git init
-git remote add origin https://github.com/silentbearsteps/groupssurvey.git
-git add .
-git commit -m "initial build"
-git push -u origin main
